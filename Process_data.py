@@ -24,7 +24,6 @@ def extract_parameter(filepath, param, sep):
     with open(filepath, 'r') as file_p:
         for line in file_p.readlines():
             if param in line:
-                # print(f'\t>>>{filepath}\n\t>>>{line}')
                 return line.split(sep)[1].strip()  # Everything to right of sep, without surrounding whitespace.
             else:
                 continue  # Skip to next line.
@@ -71,7 +70,6 @@ def create_runtable(filelist):
     :return: dict, keyed by run_num_str.
     """
     runtable = {}
-    # filelist = os.listdir(filepath)
     for file in filelist:
         f_data_dict = parse_filename(file)
         run_str = f_data_dict['run_num_str']
@@ -113,19 +111,17 @@ for run in runs_dict.keys():
     if cal_mode == 'FALSE' or non_cn_mode == 'TRUE' or n_bvd == 0:
         continue  # Skip this file if not a CN run or calibration mode is OFF or no bvd values.
     else:
-        run_num_str_choice = run
+        run_num_str = run
         criteria_met_msg = f'calmode = {cal_mode}, CN mode is ON, n_bvd is non-zero ({n_bvd}).'
         good_run_count += 1
-    print(f'Run number {run_num_str_choice}:\t\t{criteria_met_msg}')
+    print(f'Run number {run_num_str}:\t\t{criteria_met_msg}')
 
 assert good_run_count > 0, 'No suitable runs available!'
 
 run_num_str_choice = input('Enter run number (xxx): ')
-# bvd_file = get_filename(data_path, run_num_str_choice, 'bvd.txt')  # Needed for final bvd value
 bvd_file = runs_dict[run_num_str_choice]['bvd_file']
-print(f'\nSelected bvd file: \t\t{bvd_file}')
-# config_file = get_filename(data_path, run_num_str_choice, 'cccdrive.cfg')
 config_file = runs_dict[run_num_str_choice]['cfg_file']
+print(f'\nSelected bvd file: \t\t{bvd_file}')
 print(f'Selected config file: \t{config_file}')
 
 datafilepath = os.path.join(ROOTDATADIR, data_dir, bvd_file)
