@@ -11,8 +11,11 @@ import GTC
 import math
 import ccc_fns as cf
 
+# ROOTDATADIR = r'C:\Users\t.lawson\Callaghan Innovation\ORG-MSL [MSL] - Electricity' \
+#               r'\Ongoing\QHR_CCC\Magnicon CCC\Commissioning\Data'
 ROOTDATADIR = r'C:\Users\t.lawson\Callaghan Innovation\ORG-MSL [MSL] - Electricity' \
-              r'\Ongoing\QHR_CCC\Magnicon CCC\Commissioning\Data'
+              r'\Ongoing\QHR_CCC\Magnicon CCC\Measurements\Data'
+
 k_unc_decode = {'0': 512, '1': 64, '2': 8, '3': 1}
 
 
@@ -38,6 +41,9 @@ good_run_count = 0
 for run in runs_dict.keys():
     cfgfilepath = os.path.join(ROOTDATADIR, data_dir, runs_dict[run]['cfg_file'])
     bvdfilepath = os.path.join(ROOTDATADIR, data_dir, runs_dict[run]['bvd_file'])
+    if cf.extract_parameter(bvdfilepath, 'bvd averages', ':').startswith('x'):
+        print(f'Skipping unfinished run {run}.')
+        continue  # Skip - Unfinished run
     cal_mode = cf.extract_parameter(cfgfilepath, 'cn_calmode 3', '=')
     non_cn_mode = cf.extract_parameter(cfgfilepath, 'cn_short 3', '=')
     n_bvd = int(cf.extract_parameter(bvdfilepath, 'bvd averages', ':'))
