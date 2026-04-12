@@ -47,7 +47,7 @@ n_keep = input("Enter cut-off point (default is to keep all points): ")
 if n_keep == "":
     n_keep = len(bvd_vals)
 n_keep = int(n_keep)
-bvd_vals_trunc = bvd_vals[0:n_keep-1]
+bvd_vals_trunc = bvd_vals[0:n_keep]
 av_value_trunc = statistics.mean(bvd_vals_trunc)
 print(f'Cut {len(bvd_vals) - n_keep} points. Mean bvd (truncated) = {av_value_trunc:.2e} V')
 
