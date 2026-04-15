@@ -9,12 +9,13 @@ import datetime as dt
 DB_DIR = r'C:\Users\t.lawson\Callaghan Innovation\ORG-MSL [MSL] - ' \
          r'Electricity\Ongoing\QHR_CCC\Magnicon CCC\Measurements\CCC.db'
 
+
 def extract_parameter(filepath, param, sep):
     """
     Search file filepath for param (where sep is the delimiter between param and the value)
     and return corresponding value (as a string).
     """
-    with open(filepath, 'r') as file_p:
+    with open(filepath, 'r', encoding='ansi') as file_p:
         for line in file_p.readlines():
             if param in line:
                 return line.split(sep)[1].strip()  # Everything to right of sep, without surrounding whitespace.
@@ -57,6 +58,25 @@ def parse_filename(file):
     return file_data
 
 
+def filename_check(file):
+    """
+    Basic checks to confirm the filename conforms to a standard structure.
+    :param file: Filename string
+    :return: Boolean (True for success)
+    """
+    file_parts = file.split('_')
+    if len(file_parts) < 3:  # Should be 3 or 4 parts
+        return False
+    elif len(file_parts[0]) != 6:  # Date part should be 6 digits
+        return False
+    elif len(file_parts[1]) != 3:  # Run-number part should be 3 digits
+        return False
+    elif len(file_parts[2]) < 4:  # Time part should be 4 or more characters
+        return False
+    else:
+        return True
+
+
 def create_runtable(filelist):
     """
     Collate info on data files. Group by run number
@@ -65,6 +85,8 @@ def create_runtable(filelist):
     """
     runtable = {}
     for file in filelist:
+        if filename_check(file) is False:
+            continue  # Skip files with non-conforming name format
         f_data_dict = parse_filename(file)
         run_str = f_data_dict['run_num_str']
         file_type = f_data_dict['type']
