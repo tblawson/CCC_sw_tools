@@ -47,14 +47,13 @@ for run in runs_dict.keys():
     cal_mode = cf.extract_parameter(cfgfilepath, 'cn_calmode 3', '=')
     non_cn_mode = cf.extract_parameter(cfgfilepath, 'cn_short 3', '=')
     n_bvd = int(cf.extract_parameter(bvdfilepath, 'bvd averages', ':'))
-    if cal_mode == 'FALSE' or non_cn_mode == 'TRUE' or n_bvd == 0:
+    if cal_mode == 'FALSE' or non_cn_mode == 'TRUE' or n_bvd <= 1:
         continue  # Skip this file if not a CN run or calibration mode is OFF or no bvd values.
     else:
         run_num_str = run
-        criteria_met_msg = f'calmode = {cal_mode}, CN mode is ON, n_bvd is non-zero ({n_bvd}).'
+        criteria_met_msg = f'calmode = {cal_mode}, CN mode is ON, n_bvd > 1 ({n_bvd}).'
         good_run_count += 1
     print(f'Run number {run_num_str}:\t\t{criteria_met_msg}')
-
 assert good_run_count > 0, 'No suitable runs available!'
 
 run_num_str_choice = input('Enter run number (xxx): ')
@@ -98,7 +97,7 @@ k_unc = (1/math.sqrt(12)) / 2048 / k_unc_decode[range_shunt_code]
 bvd = GTC.ureal(bvd_val, bvd_unc, bvd_df, label='bvd')
 print(f'bvd(CN run) = {bvd:.2g}, dof {bvd.df:2.1f}')
 k = GTC.ureal(k_val_mturns/1000, k_unc, 8, label='k_turns')
-print(f'k ={k}, dof {k.df:2.1f}')
+print(f'k ={k} turns, dof {k.df:2.1f}')
 
 ratio1_2 = (N1/N2)*(1 + k*Na/N1)*(1 + bvd/I2R2)  # Uncert on I2R2??
 print(f'\nCalculated ratio {R1_name}/{R2_name} = {ratio1_2.x:.12f} +/- {ratio1_2.u:.2g}, dof {ratio1_2.df:2.1f}')
