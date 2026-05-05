@@ -23,6 +23,7 @@ k_unc_decode = {'0': 512, '1': 64, '2': 8, '3': 1}
 # Connect to CCC database:
 db_connection = cf.db_connect()
 curs = db_connection.cursor()
+db_write = False  # Default behaviour is to NOT write to the database.
 
 contents = os.listdir(ROOTDATADIR)
 print('\nAvailable data directories:')
@@ -109,7 +110,6 @@ while True:
     ratio_dev_from_nom = ratio1_2 - R1_nom/R2_nom
     print(f'Ratio deviation from nominal: {ratio_dev_from_nom:.2e}, dof {ratio_dev_from_nom.df:2.1f}')
 
-    db_write = False  # Default behaviour is to NOT write to the database.
     if input('\nWrite to CCC.db database (y,n)? ') == 'y':
        db_write = True
 
