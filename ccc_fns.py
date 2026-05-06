@@ -8,7 +8,8 @@ import datetime as dt
 
 DB_DIR = r'C:\Users\t.lawson\Callaghan Innovation\ORG-MSL [MSL] - ' \
          r'Electricity\Ongoing\QHR_CCC\Magnicon CCC\Measurements\CCC.db'
-
+ROOTDATADIR = r'C:\Users\t.lawson\Callaghan Innovation\ORG-MSL [MSL] - Electricity' \
+              r'\Ongoing\QHR_CCC\Magnicon CCC\Measurements\Data'
 
 def extract_parameter(filepath, param, sep):
     """
@@ -76,6 +77,27 @@ def filename_check(file):
     else:
         return True
 
+
+def parse_basename(b_name):
+    """
+    Extract date, time and run number from basename.
+    If the basename format is invalid, return None.
+
+    :param b_name:
+    :return: (data directory, run number, time)
+    """
+    if filename_check(b_name):
+        parts = b_name.split('_')
+        date = parts[0]
+        run_no = parts[1]
+        time = parts[2]  # Don't really need this yet
+        year = str(int(date[:2]) + 2000)
+        mon = date[2:4]
+        dat = date[4:]
+        data_dir = '_'.join(['-'.join([year, mon, dat]), 'CCC'])
+        return data_dir, run_no, time
+    else:
+        return None
 
 def create_runtable(filelist):
     """

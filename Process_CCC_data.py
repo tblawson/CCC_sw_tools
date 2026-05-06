@@ -6,6 +6,7 @@ calculate the resistor ratio and write to the CCC.db database.
     Tim Lawson
     12/12/2025
 """
+
 import os
 import GTC
 import math
@@ -13,8 +14,8 @@ import ccc_fns as cf
 
 # ROOTDATADIR = r'C:\Users\t.lawson\Callaghan Innovation\ORG-MSL [MSL] - Electricity' \
 #               r'\Ongoing\QHR_CCC\Magnicon CCC\Commissioning\Data'
-ROOTDATADIR = r'C:\Users\t.lawson\Callaghan Innovation\ORG-MSL [MSL] - Electricity' \
-              r'\Ongoing\QHR_CCC\Magnicon CCC\Measurements\Data'
+# ROOTDATADIR = r'C:\Users\t.lawson\Callaghan Innovation\ORG-MSL [MSL] - Electricity' \
+#               r'\Ongoing\QHR_CCC\Magnicon CCC\Measurements\Data'
 
 k_unc_decode = {'0': 512, '1': 64, '2': 8, '3': 1}
 
@@ -25,7 +26,7 @@ db_connection = cf.db_connect()
 curs = db_connection.cursor()
 db_write = False  # Default behaviour is to NOT write to the database.
 
-contents = os.listdir(ROOTDATADIR)
+contents = os.listdir(cf.ROOTDATADIR)
 print('\nAvailable data directories:')
 for item in contents:
     if '.' in item:
@@ -33,15 +34,15 @@ for item in contents:
     print(item)
 data_dir = input('Enter directory: ')  # One day's-worth of files.
 
-data_path = os.path.join(ROOTDATADIR, data_dir)  # One day's-worth of files.
+data_path = os.path.join(cf.ROOTDATADIR, data_dir)  # One day's-worth of files.
 data_dir_contents = os.listdir(data_path)
 runs_dict = cf.create_runtable(data_dir_contents)
 
 print('\nAvailable runs:')
 good_run_count = 0
 for run in runs_dict.keys():
-    cfgfilepath = os.path.join(ROOTDATADIR, data_dir, runs_dict[run]['cfg_file'])
-    bvdfilepath = os.path.join(ROOTDATADIR, data_dir, runs_dict[run]['bvd_file'])
+    cfgfilepath = os.path.join(cf.ROOTDATADIR, data_dir, runs_dict[run]['cfg_file'])
+    bvdfilepath = os.path.join(cf.ROOTDATADIR, data_dir, runs_dict[run]['bvd_file'])
     if cf.extract_parameter(bvdfilepath, 'bvd averages', ':').startswith('x'):
         print(f'Skipping unfinished run {run}.')
         continue  # Skip - Unfinished run
@@ -69,14 +70,16 @@ while True:
     print(f'\nSelected bvd file: \t\t{bvd_file}')
     print(f'Selected config file: \t{config_file}')
 
-    datafilepath = os.path.join(ROOTDATADIR, data_dir, bvd_file)
-    conffilepath = os.path.join(ROOTDATADIR, data_dir, config_file)
+    datafilepath = os.path.join(cf.ROOTDATADIR, data_dir, bvd_file)
+    conffilepath = os.path.join(cf.ROOTDATADIR, data_dir, config_file)
 
     # Extract useful data:
     bvd_val, bvd_unc = cf.extract_bvd(datafilepath)
 
-    # date_str = extract_parameter(datafilepath, 'stop date', ':')
-    # time_str = extract_parameter(datafilepath, 'stop time', ':')
+    date_str = cf.extract_parameter(datafilepath, 'start date', ':')
+    time_str = cf.extract_parameter(datafilepath, 'start time', ':').replace('.', ':')
+    start_datetime_str = ' '.join([date_str, time_str])
+    print(f'timestamp: {start_datetime_str}')
     n = int(cf.extract_parameter(datafilepath, 'bvd averages', ':'))
     R1_name = cf.extract_parameter(datafilepath, 'R1 Info', ':')
     R2_name = cf.extract_parameter(datafilepath, 'R2 Info', ':')
@@ -115,11 +118,12 @@ while True:
 
     if db_write:
         # Write to Runs table:
-        headings = 'Basename,R1_name,R1_val,R2_name,R2_val,N1,N2,Na,N_cycles,Gain,' \
+        headings = 'Basename,Time,R1_name,R1_val,R2_name,R2_val,N1,N2,Na,N_cycles,Gain,' \
                    'Delta_I2R2,k_turns,u_k,dof_k,BVD,u_BVD,dof_BVD,' \
                    'Ratio_R1_R2,u_ratio,dof_ratio,' \
                    'Dev_from_nom,u_Dev,dof_Dev'
-        values = f"'{basename}','{R1_name}',{R1_nom},'{R2_name}',{R2_nom},{N1},{N2},{Na},{n},{gain:.1e}," \
+        values = f"'{basename}','{start_datetime_str}','{R1_name}',{R1_nom},'{R2_name}'," \
+                 f"{R2_nom},{N1},{N2},{Na},{n},{gain:.1e}," \
                  f"{I2R2},{k.x:.5e},{k.u:.2e},{k.df},{bvd.x},{bvd.u:.2e},{bvd.df}," \
                  f"{ratio1_2.x},{ratio1_2.u:.2e},{ratio1_2.df:.1f}," \
                  f"{ratio_dev_from_nom.x:.6e},{ratio_dev_from_nom.u:.2e},{ratio_dev_from_nom.df:.1f}"
