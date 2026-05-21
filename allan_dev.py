@@ -1,5 +1,6 @@
 import os
 import statistics
+import ccc_fns as cf
 
 """
 allan_dev.py
@@ -42,32 +43,19 @@ print(f'End of file - read {len(bvd_vals)} values.\n')
 """
 Truncation cut: remove 'dead' points from end of file, in case of SQUID-lock-loss
 """
-bvd_vals_trunc = []
-n_keep = input("Enter cut-off point (default is to keep all points): ")
-if n_keep == "":
-    n_keep = len(bvd_vals)
-n_keep = int(n_keep)
-bvd_vals_trunc = bvd_vals[0:n_keep]
-av_value_trunc = statistics.mean(bvd_vals_trunc)
-print(f'Cut {len(bvd_vals) - n_keep} points. Mean bvd (truncated) = {av_value_trunc:.2e} V')
+bvd_vals_trunc = cf.truncate(bvd_vals)
+av_value_trunc, sd_trunc = cf.mean_and_sd(bvd_vals)  # statistics.mean(bvd_vals_trunc)
+print(f'Cut {len(bvd_vals) - len(bvd_vals_trunc)} points. Mean bvd (truncated) = {av_value_trunc:.2e} V')
 
 """
 Data quality cut: remove outliers.
 """
-bvd_vals_kept = []
-n_sd = input("No. of std dev's for data cut (default is no cut): ")
-if n_sd == "":  # Default is to keep all data
-    bvd_vals_kept = bvd_vals_trunc
-    # n_sd = 3  # ~99.7% kept (if normal distribution).
+bvd_vals_kept, bvd_vals_kept_av, threshold, n_sig = cf.cut_outliers(bvd_vals_trunc)
+print(f'Retained {len(bvd_vals_kept)} values with mean value {bvd_vals_kept_av:.2e} V')
+if threshold == 0:
+    print(f'Excluded no points.')
 else:
-    sdn = float(n_sd)*statistics.stdev(bvd_vals_trunc)
-    for val in bvd_vals_trunc:
-        if (val > av_value_trunc + sdn) or (val < av_value_trunc - sdn):
-            continue  # skip failed points
-        bvd_vals_kept.append(val)
-    print(f'mean bvd = {av_value_trunc:.2e} +/- {sdn:.2e} V')
-
-print(f'Retained {len(bvd_vals_kept)} values with mean value {statistics.mean(bvd_vals_kept):.2e}')
+    print(f'Excluded points more than {threshold:.2e} V ({n_sig:.2f} sigma) from the mean')
 
 """
 Write out a 'cleaned' version of the data
