@@ -23,37 +23,57 @@ print('\nList of runs (basename, R1_name, R2_name):')
 for row in run_options:
     print(row)
 
-# Select three runs:
-# failed_checks = True
-while True:  # failed_checks:
-    run_a = input('\nSelect 1st run basename (LARGEST two resistors): ')
-    run_b = input('Select 2nd run basename (SMALLEST two resistors): ')
-    run_c = input('Select 3rd run basename (LARGEST AND SMALLEST resistors): ')
-    check_dict = cf.constraints_check(run_a, run_b, run_c)
-    if check_dict['status'] is True:
-        # failed_checks = False
-        print(f'{check_dict}\n')
-        break  # Great! We're all good.
-    else:  # Constraints NOT met:
-        print(f"The following constraint failures were found. Please reselect runs.")
-        for msg in check_dict['fail_msg_lst']:
-            print(msg)
-        continue
+comparison_type = input('\nNumber of runs to compare? (enter 2 for reciprocal, or 3 for triangle): ')
 
-# Extract ratios:
 ratios = {}
-for run in [run_a, run_b, run_c]:  # E.g. '260130_004_1210'...
-    query = f"SELECT Ratio_R1_R2,u_ratio,dof_ratio FROM Runs WHERE Basename = '{run}';"
-    curs.execute(query)
-    result = curs.fetchone()
-    ratios[run] = GTC.ureal(result[0], result[1], result[2], label=run)
-print(f'{ratios}\n')
+if comparison_type == '3':  # triangle
+    # Select three runs:
+    # failed_checks = True
+    while True:  # failed_checks:
+        run_a = input('\nSelect 1st run basename (LARGEST two resistors): ')
+        run_b = input('Select 2nd run basename (SMALLEST two resistors): ')
+        run_c = input('Select 3rd run basename (LARGEST AND SMALLEST resistors): ')
+        check_dict = cf.constraints_check(run_a, run_b, run_c)
+        if check_dict['status'] is True:
+            # failed_checks = False
+            print(f'{check_dict}\n')
+            break  # Great! We're all good.
+        else:  # Constraints NOT met:
+            print(f"The following constraint failures were found. Please reselect runs.")
+            for msg in check_dict['fail_msg_lst']:
+                print(msg)
+            continue
 
-# Calculate closure error:
-closure = ratios[run_a]*ratios[run_b]/ratios[run_c] - 1
+    # Extract ratios:
+    for run in [run_a, run_b, run_c]:  # E.g. '260130_004_1210'...
+        query = f"SELECT Ratio_R1_R2,u_ratio,dof_ratio FROM Runs WHERE Basename = '{run}';"
+        curs.execute(query)
+        result = curs.fetchone()
+        ratios[run] = GTC.ureal(result[0], result[1], result[2], label=run)
+    print(f'{ratios}\n')
+
+    # Calculate closure error:
+    closure = ratios[run_a] * ratios[run_b] / ratios[run_c] - 1
+
+elif comparison_type == '2':  # Reciprocal
+    # Select two runs:
+    run_a = input('\nSelect 1st run basename: ')
+    run_b = input('\nSelect 2nd run basename: ')
+
+    # Extract ratios:
+    for run in [run_a, run_b]:  # E.g. '260130_004_1210'...
+        query = f"SELECT Ratio_R1_R2,u_ratio,dof_ratio FROM Runs WHERE Basename = '{run}';"
+        curs.execute(query)
+        result = curs.fetchone()
+        ratios[run] = GTC.ureal(result[0], result[1], result[2], label=run)
+    print(f'{ratios}\n')
+
+    # Calculate closure error:
+    closure = ratios[run_a]/ratios[run_b] - 1
+
 k = GTC.rp.k_factor(closure.df, 95)
 EU = k*closure.u
-print(f'Triangle closure error = {closure.x:.3e} +/- {closure.u:.3e} (dof = {closure.df:.1f}). '
+print(f'Closure error = {closure.x:.3e} +/- {closure.u:.3e} (dof = {closure.df:.1f}). '
       f'Exp U = {EU:.2e}, k = {k:.2f}')
 
 # Write to db:
