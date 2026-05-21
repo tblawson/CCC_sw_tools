@@ -5,11 +5,120 @@ Useful functions
 """
 import sqlite3
 import datetime as dt
+import os
+import statistics
 
 DB_DIR = r'C:\Users\t.lawson\Callaghan Innovation\ORG-MSL [MSL] - ' \
          r'Electricity\Ongoing\QHR_CCC\Magnicon CCC\Measurements\CCC.db'
 ROOTDATADIR = r'C:\Users\t.lawson\Callaghan Innovation\ORG-MSL [MSL] - Electricity' \
               r'\Ongoing\QHR_CCC\Magnicon CCC\Measurements\Data'
+TIMEBASE = 0.02  # One 50 Hz cycle.
+
+
+def present_runs():
+    """
+    Present all available data directories and prompt user selection;
+    Present list of CN runs.
+    Return dictionary of available runs and data directory path.
+    """
+    contents = os.listdir(ROOTDATADIR)
+    print('\nAvailable data directories:')
+    for item in contents:
+        if '.' in item:
+            continue
+        print(item)
+    data_dir = input('Enter directory: ')  # One day's-worth of files.
+    data_path = os.path.join(ROOTDATADIR, data_dir)  # Full path to one day's-worth of files.
+    data_dir_contents = os.listdir(data_path)
+    r_dict = create_runtable(data_dir_contents)
+
+    print('\nAvailable runs:')
+    good_run_count = 0
+    for run in r_dict.keys():
+        cfgfilepath = make_full_path(data_dir, r_dict[run]['cfg_file'])
+        bvdfilepath = make_full_path(data_dir, r_dict[run]['bvd_file'])
+        if extract_parameter(bvdfilepath, 'bvd averages', ':').startswith('x'):
+            print(f'Skipping unfinished run {run}.')
+            continue  # Skip - Unfinished run
+        cal_mode = extract_parameter(cfgfilepath, 'cn_calmode 3', '=')
+        non_cn_mode = extract_parameter(cfgfilepath, 'cn_short 3', '=')
+        n_bvd = int(extract_parameter(bvdfilepath, 'bvd averages', ':'))
+        if cal_mode == 'FALSE' or non_cn_mode == 'TRUE' or n_bvd <= 1:
+            continue  # Skip this file if not a CN run or calibration mode is OFF or no bvd values.
+        else:
+            run_num_str = run
+            criteria_met_msg = f'calmode = {cal_mode}, CN mode is ON, n_bvd > 1 ({n_bvd}).'
+            good_run_count += 1
+        print(f'Run number {run_num_str}:\t\t{criteria_met_msg}')
+    assert good_run_count > 0, 'No suitable runs available!'
+    return r_dict, data_dir
+
+
+def make_full_path(sub_dir, filename):
+    """
+    Create absolute path for sub_dir/filenmame.
+    """
+    return os.path.join(ROOTDATADIR, sub_dir, filename)
+
+
+def get_bvd_data(path_to_file):
+    bvd_vals = []
+    with open(path_to_file, 'r') as bvd_file:
+        line = bvd_file.readline()  # 1st line
+        while line[0] != '#':  # Header line before 1st data row (on exit)
+            line = bvd_file.readline()
+            if line.startswith('integration time'):
+                sampletime = TIMEBASE * float(line.split(':')[1].strip())  # in s
+            if line.startswith('number of samples per half cycle'):
+                samples_per_cycle = 2 * float(line.split(':')[1].strip())
+                # cycletime = samples_per_cycle * sampletime
+
+        while True:
+            line = bvd_file.readline()  # data row
+            if not line:
+                break  # break at EOF
+            bvd = float(line.split()[1])  # Split at " ", cast 2nd item as float
+            bvd_vals.append(bvd)
+    print(f'End of file - read {len(bvd_vals)} values.\n')
+    return bvd_vals
+
+
+def truncate(all_vals):
+    """
+    Truncate array 'all_vals'. Return a new array, shortened to n_keep elements.
+    """
+    n_keep = input("Enter cut-off point (default is to keep all points): ")
+    if n_keep == "" or int(n_keep) >= len(all_vals):
+        n_keep = len(all_vals)
+    n_keep = int(n_keep)
+    return all_vals[0:n_keep]
+
+
+def mean_and_sd(vals):
+    return statistics.mean(vals), statistics.stdev(vals)
+
+
+def cut_outliers(vals):
+    """
+    Remove points that are beyond n_sd standard deviations from the mean.
+    Return the thinned array, its average, outlier cut threshold and n.
+    """
+    av, sdev = mean_and_sd(vals)
+    bvd_vals_kept = []
+    n_sd = input("No. of std dev's for data cut (default is no cut): ")
+    if n_sd == "":  # Default is to keep all data
+        bvd_vals_kept = vals  # n_sd = 3: ~99.7% kept (if normal distribution).
+        n_sd = 0
+        sdn = 0
+    else:
+        sdn = float(n_sd)*sdev
+        for val in vals:
+            if (val > av + sdn) or (val < av - sdn):
+                continue  # skip failed points
+            bvd_vals_kept.append(val)
+        print(f'mean bvd (before cut) = {av:.2e} +/- {sdev:.2e} V')
+    return bvd_vals_kept, av, sdn, float(n_sd)
+
 
 def extract_parameter(filepath, param, sep):
     """
@@ -98,6 +207,7 @@ def parse_basename(b_name):
         return data_dir, run_no, time
     else:
         return None
+
 
 def create_runtable(filelist):
     """
@@ -196,3 +306,9 @@ def constraints_check(a, b, c):
         chk_dict['status'] = True
 
     return chk_dict
+
+def valid_run_num(s):
+    if len(s) == 3 and s.isnumeric():
+        return True
+    else:
+        return False
