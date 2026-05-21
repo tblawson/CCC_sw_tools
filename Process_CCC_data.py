@@ -12,11 +12,6 @@ import GTC
 import math
 import ccc_fns as cf
 
-# ROOTDATADIR = r'C:\Users\t.lawson\Callaghan Innovation\ORG-MSL [MSL] - Electricity' \
-#               r'\Ongoing\QHR_CCC\Magnicon CCC\Commissioning\Data'
-# ROOTDATADIR = r'C:\Users\t.lawson\Callaghan Innovation\ORG-MSL [MSL] - Electricity' \
-#               r'\Ongoing\QHR_CCC\Magnicon CCC\Measurements\Data'
-
 k_unc_decode = {'0': 512, '1': 64, '2': 8, '3': 1}
 
 
@@ -26,42 +21,12 @@ db_connection = cf.db_connect()
 curs = db_connection.cursor()
 db_write = False  # Default behaviour is to NOT write to the database.
 
-contents = os.listdir(cf.ROOTDATADIR)
-print('\nAvailable data directories:')
-for item in contents:
-    if '.' in item:
-        continue
-    print(item)
-data_dir = input('Enter directory: ')  # One day's-worth of files.
-
-data_path = os.path.join(cf.ROOTDATADIR, data_dir)  # One day's-worth of files.
-data_dir_contents = os.listdir(data_path)
-runs_dict = cf.create_runtable(data_dir_contents)
-
-print('\nAvailable runs:')
-good_run_count = 0
-for run in runs_dict.keys():
-    cfgfilepath = os.path.join(cf.ROOTDATADIR, data_dir, runs_dict[run]['cfg_file'])
-    bvdfilepath = os.path.join(cf.ROOTDATADIR, data_dir, runs_dict[run]['bvd_file'])
-    if cf.extract_parameter(bvdfilepath, 'bvd averages', ':').startswith('x'):
-        print(f'Skipping unfinished run {run}.')
-        continue  # Skip - Unfinished run
-    cal_mode = cf.extract_parameter(cfgfilepath, 'cn_calmode 3', '=')
-    non_cn_mode = cf.extract_parameter(cfgfilepath, 'cn_short 3', '=')
-    n_bvd = int(cf.extract_parameter(bvdfilepath, 'bvd averages', ':'))
-    if cal_mode == 'FALSE' or non_cn_mode == 'TRUE' or n_bvd <= 1:
-        continue  # Skip this file if not a CN run or calibration mode is OFF or no bvd values.
-    else:
-        run_num_str = run
-        criteria_met_msg = f'calmode = {cal_mode}, CN mode is ON, n_bvd > 1 ({n_bvd}).'
-        good_run_count += 1
-    print(f'Run number {run_num_str}:\t\t{criteria_met_msg}')
-assert good_run_count > 0, 'No suitable runs available!'
+runs_dict, data_dir = cf.present_runs()  # List data dirs and prompt for selection
 
 # ----------------run loop-----------------------
 while True:
-    run_num_str_choice = input('Enter run number (xxx), or e to exit: ')
-    if run_num_str_choice == 'e':
+    run_num_str_choice = input('Enter run number (xxx), or anything else to exit: ')
+    if not cf.valid_run_num(run_num_str_choice):
         break
 
     bvd_file = runs_dict[run_num_str_choice]['bvd_file']
@@ -70,8 +35,8 @@ while True:
     print(f'\nSelected bvd file: \t\t{bvd_file}')
     print(f'Selected config file: \t{config_file}')
 
-    datafilepath = os.path.join(cf.ROOTDATADIR, data_dir, bvd_file)
-    conffilepath = os.path.join(cf.ROOTDATADIR, data_dir, config_file)
+    datafilepath = cf.make_full_path(data_dir, bvd_file)
+    conffilepath = cf.make_full_path(data_dir, config_file)
 
     # Extract useful data:
     bvd_val, bvd_unc = cf.extract_bvd(datafilepath)
@@ -91,6 +56,7 @@ while True:
     Na = int(cf.extract_parameter(datafilepath, 'NA (Turns)', ':'))
     R1_nom = float(cf.extract_parameter(datafilepath, 'R1 (Ohm)', ':'))
     R2_nom = float(cf.extract_parameter(datafilepath, 'R2 (Ohm)', ':'))
+    ratio_nom = R1_nom/R2_nom
     bvd_df = n-1
 
     if k_val_mturns == 0.0:  # Deal with zero-valued k
@@ -110,11 +76,12 @@ while True:
     ratio1_2 = (N1/N2)*(1 + k*Na/N1)*(1 + bvd/I2R2)  # Uncert on I2R2??
     print(f'\nCalculated ratio {R1_name}/{R2_name} = {ratio1_2.x:.12f} +/- {ratio1_2.u:.2g}, dof {ratio1_2.df:2.1f}')
 
-    ratio_dev_from_nom = ratio1_2 - R1_nom/R2_nom
-    print(f'Ratio deviation from nominal: {ratio_dev_from_nom:.2e}, dof {ratio_dev_from_nom.df:2.1f}')
+    ratio_dev_from_nom = ratio1_2 - ratio_nom  # ratio1_2 - R1_nom/R2_nom
+    print(f'Ratio fractional deviation from nominal: '
+          f'{ratio_dev_from_nom:.2e}, dof {ratio_dev_from_nom.df:2.1f}')
 
     if input('\nWrite to CCC.db database (y,n)? ') == 'y':
-       db_write = True
+        db_write = True
 
     if db_write:
         # Write to Runs table:
